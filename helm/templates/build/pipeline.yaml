@@ -27,5 +27,5 @@ spec:
           - name: image
             resource: image
       taskRef:
-        kind: ClusterTask
+        kind: Task
         name: s2i

@@ -1,0 +1,64 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: s2i
+spec:
+  params:
+    - description: The location of the s2i builder image.
+      name: BUILDER_IMAGE
+      type: string
+    - default: .
+      description: The location of the path to run s2i from.
+      name: PATH_CONTEXT
+      type: string
+    - default: 'true'
+      description: >-
+        Verify the TLS on the registry endpoint (for push/pull to a non-TLS
+        registry)
+      name: TLSVERIFY
+      type: string
+    - default: '0'
+      description: Log level when running the S2I binary
+      name: LOGLEVEL
+      type: string
+  resources:
+    inputs:
+      - name: source
+        type: git
+    outputs:
+      - name: image
+        type: image
+  steps:
+    - command:
+        - /usr/local/bin/s2i
+        - '--loglevel=$(params.LOGLEVEL)'
+        - build
+        - $(params.PATH_CONTEXT)
+        - $(params.BUILDER_IMAGE)
+        - $(resources.outputs.image.url)
+      image: 'quay.io/openshift-pipeline/s2i:nightly'
+      name: generate
+      resources: {}
+      volumeMounts:
+        - mountPath: /gen-source
+          name: gen-source
+      workingDir: /workspace/source
+    - command:
+        - buildah
+        - push
+        - '--tls-verify=$(params.TLSVERIFY)'
+        - $(resources.outputs.image.url)
+        - 'docker://$(resources.outputs.image.url)'
+      image: quay.io/buildah/stable
+      name: push
+      resources: {}
+      securityContext:
+        privileged: true
+      volumeMounts:
+        - mountPath: /var/lib/containers
+          name: varlibcontainers
+  volumes:
+    - emptyDir: {}
+      name: varlibcontainers
+    - emptyDir: {}
+      name: gen-source
