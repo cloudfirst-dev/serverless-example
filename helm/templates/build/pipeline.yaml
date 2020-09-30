@@ -1,0 +1,31 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: new-pipeline
+spec:
+  resources:
+    - name: git
+      type: git
+    - name: image
+      type: image
+  tasks:
+    - name: s2i
+      params:
+        - name: BUILDER_IMAGE
+          value: 'quay.io/quarkus/ubi-quarkus-native-s2i:20.2-java11'
+        - name: PATH_CONTEXT
+          value: .
+        - name: TLSVERIFY
+          value: 'true'
+        - name: LOGLEVEL
+          value: '0'
+      resources:
+        inputs:
+          - name: source
+            resource: git
+        outputs:
+          - name: image
+            resource: image
+      taskRef:
+        kind: ClusterTask
+        name: s2i
