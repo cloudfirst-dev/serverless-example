@@ -5,6 +5,9 @@ metadata:
   namespace: {{ .Release.Namespace }}
 spec:
   template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "true" 
     spec:
       containers:
         - image: image-registry.openshift-image-registry.svc:5000/{{ .Release.Namespace }}/serverless-example:latest
