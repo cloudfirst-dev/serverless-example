@@ -70,7 +70,7 @@ spec:
         - buildah
         - push
         - '--storage-driver=vfs'
-        - '--cert-dir=/etc/pki/ca-trust/extracted/pem'
+        - '--cert-dir=/var/run/secrets/kubernetes.io/serviceaccount'
         - '--tls-verify=$(params.TLSVERIFY)'
         - $(resources.outputs.image.url)
         - 'docker://$(resources.outputs.image.url)'
