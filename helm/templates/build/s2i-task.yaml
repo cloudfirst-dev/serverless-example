@@ -30,49 +30,19 @@ spec:
         type: image
   steps:
     - command:
-        - mvn
-        - package
-        - -Pnative
-        - -e
-        - -B
-        - -DskipTests
-        - -Dmaven.javadoc.skip=true
-        - -Dmaven.site.skip=true
-        - -Dmaven.source.skip=true
-        - -Djacoco.skip=true
-        - -Dcheckstyle.skip=true
-        - -Dfindbugs.skip=true
-        - -Dpmd.skip=true
-        - -Dfabric8.skip=true
-        - -Djar.finalName=service
-      image: '$(params.BUILDER_IMAGE)'
-      name: build
-      resources: {}
-      volumeMounts:
-        - mountPath: /workspace/source/target
-          name: target-bin
-      workingDir: /workspace/source
-    - script: |
-        #!/usr/bin/env bash
-
-        mkdir /workspace/source/target/s2i-bin
-        cp /workspace/source/target/*-runner /workspace/source/target/s2i-bin/
-
-        /usr/local/bin/s2i \
-        '--loglevel=$(params.LOGLEVEL)' \
-        build \
-        /workspace/source/target/s2i-bin \
-        'registry.access.redhat.com/ubi8/s2i-core' \
-        '--as-dockerfile' \
-        /gen-source/Dockerfile.gen
+        - /usr/local/bin/s2i
+        - '--loglevel=$(params.LOGLEVEL)'
+        - build
+        - $(params.PATH_CONTEXT)
+        - $(params.BUILDER_IMAGE)
+        - '--as-dockerfile'
+        - /gen-source/Dockerfile.gen
       image: 'quay.io/openshift-pipeline/s2i:nightly'
       name: generate
       resources: {}
       volumeMounts:
         - mountPath: /gen-source
           name: gen-source
-        - mountPath: /workspace/source/target
-          name: target-bin
       workingDir: /workspace/source
     - command:
         - buildah
@@ -86,7 +56,7 @@ spec:
         - $(resources.outputs.image.url)
         - .
       image: quay.io/buildah/stable
-      name: build-image
+      name: build
       resources: {}
       securityContext:
         privileged: true
@@ -99,6 +69,7 @@ spec:
     - command:
         - buildah
         - push
+        - '--storage-driver=vfs'
         - '--tls-verify=$(params.TLSVERIFY)'
         - $(resources.outputs.image.url)
         - 'docker://$(resources.outputs.image.url)'
@@ -110,10 +81,15 @@ spec:
       volumeMounts:
         - mountPath: /var/lib/containers
           name: varlibcontainers
+        - name: ca-trust
+          mountPath: /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
+          subPath: ca-bundle.crt
   volumes:
     - emptyDir: {}
       name: varlibcontainers
     - emptyDir: {}
       name: gen-source
-    - emptyDir: {}
-      name: target-bin
+    - name: ca-trust
+      configMap:
+        name: ca-trust
+        defaultMode: 420
