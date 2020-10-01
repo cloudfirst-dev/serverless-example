@@ -70,6 +70,7 @@ spec:
         - buildah
         - push
         - '--storage-driver=vfs'
+        - '--cert-dir=/etc/pki/ca-trust/extracted/pem'
         - '--tls-verify=$(params.TLSVERIFY)'
         - $(resources.outputs.image.url)
         - 'docker://$(resources.outputs.image.url)'
