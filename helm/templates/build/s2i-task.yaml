@@ -30,19 +30,72 @@ spec:
         type: image
   steps:
     - command:
-        - /usr/local/bin/s2i
-        - '--loglevel=$(params.LOGLEVEL)'
-        - build
-        - $(params.PATH_CONTEXT)
-        - $(params.BUILDER_IMAGE)
-        - $(resources.outputs.image.url)
+        - mvn
+        - package
+        - -Pnative
+        - -e
+        - -B
+        - -DskipTests
+        - -Dmaven.javadoc.skip=true
+        - -Dmaven.site.skip=true
+        - -Dmaven.source.skip=true
+        - -Djacoco.skip=true
+        - -Dcheckstyle.skip=true
+        - -Dfindbugs.skip=true
+        - -Dpmd.skip=true
+        - -Dfabric8.skip=true
+        - -Djar.finalName=service
+      image: '$(params.BUILDER_IMAGE)'
+      name: build
+      resources: {}
+      volumeMounts:
+        - mountPath: /workspace/source/target
+          name: target-bin
+      workingDir: /workspace/source
+    - script: |
+        #!/usr/bin/env bash
+
+        mkdir /workspace/source/target/s2i-bin
+        cp /workspace/source/target/*-runner /workspace/source/target/s2i-bin/
+
+        /usr/local/bin/s2i \
+        '--loglevel=$(params.LOGLEVEL)' \
+        build \
+        /workspace/source/target/s2i-bin \
+        'registry.access.redhat.com/ubi8/s2i-core' \
+        '--as-dockerfile' \
+        /gen-source/Dockerfile.gen
       image: 'quay.io/openshift-pipeline/s2i:nightly'
       name: generate
       resources: {}
       volumeMounts:
         - mountPath: /gen-source
           name: gen-source
+        - mountPath: /workspace/source/target
+          name: target-bin
       workingDir: /workspace/source
+    - command:
+        - buildah
+        - bud
+        - '--storage-driver=vfs'
+        - '--tls-verify=$(params.TLSVERIFY)'
+        - '--layers'
+        - '-f'
+        - /gen-source/Dockerfile.gen
+        - '-t'
+        - $(resources.outputs.image.url)
+        - .
+      image: quay.io/buildah/stable
+      name: build-image
+      resources: {}
+      securityContext:
+        privileged: true
+      volumeMounts:
+        - mountPath: /var/lib/containers
+          name: varlibcontainers
+        - mountPath: /gen-source
+          name: gen-source
+      workingDir: /gen-source
     - command:
         - buildah
         - push
@@ -62,3 +115,5 @@ spec:
       name: varlibcontainers
     - emptyDir: {}
       name: gen-source
+    - emptyDir: {}
+      name: target-bin
